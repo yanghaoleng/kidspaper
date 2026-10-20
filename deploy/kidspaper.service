@@ -1,0 +1,25 @@
+[Unit]
+Description=Kidspaper family co-creation studio
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kidspaper
+Group=kidspaper
+WorkingDirectory=/opt/kidspaper/current
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/kidspaper/kidspaper.env
+ExecStart=/usr/bin/node server/index.mjs
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/kidspaper
+UMask=0077
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target
