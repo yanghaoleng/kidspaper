@@ -4,10 +4,11 @@ cd "$(dirname "$0")/.."
 # Target-specific: run only after verifying mikeywa-rive-old still hosts mikeywa.site.
 KIDSPAPER_HOST=${KIDSPAPER_HOST:-mikeywa-rive-old}
 KIDSPAPER_RELEASE="$(date -u +%Y%m%dT%H%M%SZ)-$(git rev-parse --short HEAD)"
-KIDSPAPER_PACKAGE=$(mktemp /tmp/kidspaper-release.XXXXXX.tar.gz)
+KIDSPAPER_PACKAGE_DIR=$(mktemp -d /tmp/kidspaper-release.XXXXXX)
+KIDSPAPER_PACKAGE="$KIDSPAPER_PACKAGE_DIR/release.tar.gz"
 npm test
 npm run build
-tar -czf "$KIDSPAPER_PACKAGE" dist server shared deploy package.json package-lock.json LICENSE README.md docs
+COPYFILE_DISABLE=1 tar --no-xattrs -czf "$KIDSPAPER_PACKAGE" dist dist-server server shared deploy package.json package-lock.json LICENSE README.md docs
 shasum -a 256 "$KIDSPAPER_PACKAGE"
 scp "$KIDSPAPER_PACKAGE" "$KIDSPAPER_HOST:/tmp/kidspaper-$KIDSPAPER_RELEASE.tar.gz"
 ssh "$KIDSPAPER_HOST" "bash -s -- '$KIDSPAPER_RELEASE'" <<'REMOTE'
@@ -20,10 +21,10 @@ sudo tar -xzf "/tmp/kidspaper-$release.tar.gz" -C "$root/releases/$release"
 sudo chown -R root:root "$root/releases/$release"
 sudo chmod -R a+rX "$root/releases/$release"
 cd "$root/releases/$release"
-sudo npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+sudo test -s dist-server/server.cjs
 sudo test -s /etc/kidspaper/kidspaper.env
 sudo test -s dist/index.html
-sudo node --check server/index.mjs
+sudo node --check dist-server/server.cjs
 previous=$(readlink -f "$root/current" || true)
 nginx_file=$(readlink -f /etc/nginx/sites-enabled/mikeywa.site)
 sudo cp -a "$nginx_file" "$backup/mikeywa.site"

@@ -9,9 +9,10 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "server": "node --env-file=.env server/index.mjs",
-    "build": "vite build",
+    "build": "vite build && esbuild server/index.mjs --bundle --platform=node --target=node18 --format=cjs --outfile=dist-server/server.cjs",
     "start": "node server/index.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "format": "prettier --write src server shared tests vite.config.js"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -25,7 +26,9 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.7.0",
+    "esbuild": "^0.28.2",
     "fake-indexeddb": "^6.2.6",
+    "prettier": "^3.9.10",
     "vite": "^6.4.4"
   }
 }

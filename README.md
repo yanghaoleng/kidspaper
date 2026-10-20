@@ -28,7 +28,7 @@ npm run build
 npm start
 ```
 
-生产端口默认 4317，只监听 127.0.0.1；反向代理路径必须保持 `/kidspaper/` 前缀。设置 `NODE_ENV=production`、32 字符以上 `SESSION_SECRET`、`ALLOWED_ORIGINS` 和持久化 `DATA_DIR`。生产 cookie 使用 HTTPS。
+生产服务器运行打包后的 `dist-server/server.cjs`，无需在服务器安装 npm 依赖。开发运行端口默认 4317，只监听 127.0.0.1；反向代理路径必须保持 `/kidspaper/` 前缀。设置 `NODE_ENV=production`、32 字符以上 `SESSION_SECRET`、`ALLOWED_ORIGINS` 和持久化 `DATA_DIR`。生产 cookie 使用 HTTPS。
 
 ## AI 接入
 
@@ -58,7 +58,7 @@ npm start
 
 这是一种亲子共创与记录方式。题库和报告未经过标准化或信效度检验，**不是心理测评、诊断、天赋鉴定或人生预测**。不把成人 Human 3.0、Dan Koe 或 MBTI 分类套给孩子。所有图景是想象，观察必须回到孩子的回答。档案 AI 不能代表孩子当年的真实意识、记忆或声音。
 
-详细设计依据、数据处理和未实现能力见 [产品约定](docs/PRODUCT.md)。样刊“小禾”及全部样刊原话为虚构。
+详细设计依据、数据处理和未实现能力见 [产品约定](docs/PRODUCT.md)；参考页面的配色、尺寸与交互实测见 [参考页分析](docs/REFERENCE_ANALYSIS.md)。样刊“小禾”及全部样刊原话为虚构。
 
 ## 验证与发布
 

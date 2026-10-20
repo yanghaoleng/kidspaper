@@ -1,10 +1,69 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import 'fake-indexeddb/auto';
-import { sample } from '../src/sample.js';
-import { saveIssue, getIssues, exportIssue, importIssue, removeIssue } from '../src/storage.js';
+import test from "node:test";
+import assert from "node:assert/strict";
+import "fake-indexeddb/auto";
+import { sample } from "../src/sample.js";
+import {
+  saveIssue,
+  getIssues,
+  exportIssue,
+  importIssue,
+  removeIssue,
+} from "../src/storage.js";
 let downloaded;
-globalThis.document={createElement:()=>({click(){downloaded=this.href;}})};
-test('private archive persists empty draft and confirms committed writes',async()=>{const draft={...structuredClone(sample),id:'draft-test',answers:[],report:null};await saveIssue(draft);assert.equal((await getIssues()).find(x=>x.id===draft.id).answers.length,0);await removeIssue(draft.id);assert.equal((await getIssues()).some(x=>x.id===draft.id),false);});
-test('encrypted export/import preserves original text, report, and generated image',async()=>{const issue={...structuredClone(sample),id:'encrypted-test',images:{0:'data:image/png;base64,aGVsbG8='}};const pass='a test passphrase 2026';await exportIssue(issue,pass);const text=await(await fetch(downloaded)).text();assert.equal(text.includes('小禾'),false);assert.equal(text.includes(issue.report.title),false);const file={size:text.length,text:async()=>text};await assert.rejects(()=>importIssue(file,'wrong password'),/密码不对/);const restored=await importIssue(file,pass);assert.deepEqual(restored,issue);assert.deepEqual((await getIssues()).find(i=>i.id===issue.id),issue);await removeIssue(issue.id);});
-test('archive import rejects oversized file and unknown formats',async()=>{await assert.rejects(()=>importIssue({size:80000001},'password'),/太大/);await assert.rejects(()=>importIssue({size:2,text:async()=>'{}'},'password'),/加密档案/);await assert.rejects(()=>exportIssue(sample,'short'),/8 位/);});
+globalThis.document = {
+  createElement: () => ({
+    click() {
+      downloaded = this.href;
+    },
+  }),
+};
+test("private archive persists empty draft and confirms committed writes", async () => {
+  const draft = {
+    ...structuredClone(sample),
+    id: "draft-test",
+    answers: [],
+    report: null,
+  };
+  await saveIssue(draft);
+  assert.equal(
+    (await getIssues()).find((x) => x.id === draft.id).answers.length,
+    0,
+  );
+  await removeIssue(draft.id);
+  assert.equal(
+    (await getIssues()).some((x) => x.id === draft.id),
+    false,
+  );
+});
+test("encrypted export/import preserves original text, report, and generated image", async () => {
+  const issue = {
+    ...structuredClone(sample),
+    id: "encrypted-test",
+    images: { 0: "data:image/png;base64,aGVsbG8=" },
+  };
+  const pass = "a test passphrase 2026";
+  await exportIssue(issue, pass);
+  const text = await (await fetch(downloaded)).text();
+  assert.equal(text.includes("小禾"), false);
+  assert.equal(text.includes(issue.report.title), false);
+  const file = { size: text.length, text: async () => text };
+  await assert.rejects(() => importIssue(file, "wrong password"), /密码不对/);
+  const restored = await importIssue(file, pass);
+  assert.deepEqual(restored, issue);
+  assert.deepEqual(
+    (await getIssues()).find((i) => i.id === issue.id),
+    issue,
+  );
+  await removeIssue(issue.id);
+});
+test("archive import rejects oversized file and unknown formats", async () => {
+  await assert.rejects(
+    () => importIssue({ size: 80000001 }, "password"),
+    /太大/,
+  );
+  await assert.rejects(
+    () => importIssue({ size: 2, text: async () => "{}" }, "password"),
+    /加密档案/,
+  );
+  await assert.rejects(() => exportIssue(sample, "short"), /8 位/);
+});
