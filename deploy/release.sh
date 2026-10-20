@@ -54,7 +54,7 @@ from pathlib import Path
 p=Path(sys.argv[1]);s=p.read_text()
 line='    include /etc/nginx/snippets/kidspaper.conf;'
 if line not in s:
-    marker='    server_name mikeywa.site www.mikeywa.site;'
+    marker='    root /var/www/mikeywa-site/current;'
     if s.count(marker)!=1: raise SystemExit('Unexpected Nginx host layout; refusing to change')
     s=s.replace(marker,marker+'\n'+line,1);p.write_text(s)
 PY
