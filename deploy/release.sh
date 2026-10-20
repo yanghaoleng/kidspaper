@@ -25,7 +25,8 @@ sudo test -s dist-server/server.cjs
 sudo test -s /etc/kidspaper/kidspaper.env
 sudo test -s dist/index.html
 sudo node --check dist-server/server.cjs
-previous=$(readlink -f "$root/current" || true)
+previous=""
+if [ -e "$root/current" ]; then previous=$(readlink -f "$root/current"); fi
 nginx_file=$(readlink -f /etc/nginx/sites-enabled/mikeywa.site)
 sudo cp -a "$nginx_file" "$backup/mikeywa.site"
 if sudo test -f /etc/nginx/snippets/kidspaper.conf; then sudo cp -a /etc/nginx/snippets/kidspaper.conf "$backup/kidspaper.conf"; fi

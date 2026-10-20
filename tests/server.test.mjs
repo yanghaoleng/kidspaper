@@ -59,7 +59,7 @@ test("API consent, cross-origin, input, report provenance, and private static bo
     } else
       result = {
         reflection: "我听见了花园。",
-        question: "你想邀请谁？",
+        question: "你想邀请谁？是不是妈妈？",
         parentTip: "给孩子一点时间。",
       };
     res.setHeader("Content-Type", "application/json");

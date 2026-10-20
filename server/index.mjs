@@ -246,7 +246,11 @@ app.post(
         parentTip: z.string().max(300),
       })
       .parse(result);
-    if (/吗[？?]?\s*$|是不是|会不会|对不对/.test(follow.question))
+    follow.question = follow.question.split(/[？?]/)[0].trim() + "？";
+    if (
+      follow.question.length < 6 ||
+      /吗[？?]?\s*$|是不是|会不会|对不对|有没有/.test(follow.question)
+    )
       follow.question =
         input.answers.at(-1).who === "guardian"
           ? "你愿意从哪一件小事开始支持孩子？"
