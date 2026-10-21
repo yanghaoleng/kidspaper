@@ -369,6 +369,24 @@ const englishActivities = [
   "Find three leaves, give each a name and explain your choices.",
   "Pick a short story and take turns reading it very slowly with your family.",
 ];
+const timeZones = [
+  "Asia/Shanghai",
+  "Asia/Tokyo",
+  "Europe/London",
+  "Europe/Paris",
+  "America/Lima",
+  "America/Sao_Paulo",
+  "Africa/Casablanca",
+  "Australia/Melbourne",
+  "America/Los_Angeles",
+  "America/Toronto",
+  "Asia/Shanghai",
+  "Europe/Madrid",
+  "Asia/Tokyo",
+  "Africa/Nairobi",
+  "Pacific/Auckland",
+  "Asia/Jerusalem",
+];
 export const communityStories = raw.map((r, i) => ({
   id: r[0],
   name: r[1],
@@ -376,6 +394,7 @@ export const communityStories = raw.map((r, i) => ({
   lon: r[4],
   lat: r[5],
   language: r[6],
+  timeZone: timeZones[i],
   age: i === 0 ? 6 : 4 + (i % 6),
   originalQuote: r[8],
   text: {

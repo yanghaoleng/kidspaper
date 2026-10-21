@@ -1,39 +1,75 @@
 import React, { useEffect, useRef, useState } from "react";
-import { geoOrthographic, geoPath, geoDistance } from "d3-geo";
-import { ArrowLeft, ArrowRight, Pause, Play } from "@phosphor-icons/react";
+import { geoOrthographic, geoPath, geoDistance, geoCircle } from "d3-geo";
+import { Sun, Moon } from "@phosphor-icons/react";
+import {
+  siderealAngle,
+  cameraLongitude,
+  solarPosition,
+  entranceFrame,
+} from "./planet-time.mjs";
 
-export default function PaperGlobe({ stories, selected, onSelect, english }) {
+export default function PaperGlobe({
+  stories,
+  selected,
+  onSelect,
+  english,
+  viewer,
+  now,
+}) {
   const canvas = useRef(),
     container = useRef(),
-    markers = useRef(new Map());
-  const state = useRef({ yaw: -65, target: null, drag: null, auto: false });
-  const [auto, setAuto] = useState(false),
-    [mapError, setMapError] = useState(false);
+    markers = useRef(new Map()),
+    dirty = useRef(true);
   const live = useRef({ stories, selected, onSelect });
   live.current = { stories, selected, onSelect };
+  const [mapError, setMapError] = useState(false);
   useEffect(() => {
-    if (selected) state.current.target = -selected.lon;
-  }, [selected?.id]);
+    dirty.current = true;
+  }, [stories, selected?.id]);
   useEffect(() => {
     let cancelled = false,
       frame,
       land = null,
+      mapFailed = false,
       width = 0,
       height = 0,
-      previous = 0;
+      previous = -Infinity,
+      started = null,
+      inView = true;
     const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const el = canvas.current,
       ctx = el.getContext("2d");
+    if (!ctx) {
+      setMapError(true);
+      return;
+    }
+    const entryDate = new Date(),
+      anchor = viewer.longitude + siderealAngle(entryDate);
+    const latitudes = live.current.stories
+      .map((s) => s.lat)
+      .sort((a, b) => a - b);
+    const representative = latitudes.length
+      ? latitudes[Math.floor(latitudes.length / 2)]
+      : 25;
+    // A low fixed camera frames an open horizon. The timezone is not a GPS fix.
+    const cameraLatitude = Math.max(-65, Math.min(20, representative - 40));
     fetch(import.meta.env.BASE_URL + "data/land.geojson")
       .then((r) => {
         if (!r.ok) throw Error();
         return r.json();
       })
-      .then((d) => {
-        if (!cancelled) land = d;
+      .then((data) => {
+        if (!cancelled) {
+          land = data;
+          dirty.current = true;
+        }
       })
       .catch(() => {
-        if (!cancelled) setMapError(true);
+        if (!cancelled) {
+          mapFailed = true;
+          dirty.current = true;
+          setMapError(true);
+        }
       });
     const resize = () => {
       width = container.current.clientWidth;
@@ -42,89 +78,73 @@ export default function PaperGlobe({ stories, selected, onSelect, english }) {
       el.width = width * dpr;
       el.height = height * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      dirty.current = true;
     };
     const ro = new ResizeObserver(resize);
     ro.observe(container.current);
     resize();
+    const io = new IntersectionObserver(([entry]) => {
+      inView = entry.isIntersecting;
+      if (inView) dirty.current = true;
+    });
+    io.observe(container.current);
     const draw = (time) => {
       if (cancelled) return;
-      if (time - previous < 33) {
-        frame = requestAnimationFrame(draw);
-        return;
-      }
-      const s = state.current,
-        dt = Math.min(time - previous, 40);
+      frame = requestAnimationFrame(draw);
+      if (!inView) return;
+      if (!land && !mapFailed) return;
+      if (started === null) started = time;
+      const elapsed = time - started,
+        interval = elapsed < 4200 ? 33 : 1000;
+      if (!dirty.current && time - previous < interval) return;
       previous = time;
-      if (s.target !== null && !s.drag) {
-        const diff = ((s.target - s.yaw + 540) % 360) - 180;
-        s.yaw += reduced ? diff : diff * 0.07;
-        if (Math.abs(diff) < 0.1) s.target = null;
-      } else if (s.auto && !s.drag && !reduced) s.yaw += dt * 0.002;
-      const r = Math.min(width * 0.355, height * 0.385),
+      dirty.current = false;
+      const date = new Date(),
+        entry = entranceFrame(elapsed, 0, reduced);
+      const r = Math.max(width * 0.55, height * 1.02),
         cx = width * 0.5,
-        cy = height * 0.535;
+        cy = height * 1.25 + 10 * (1 - entry.opacity);
+      const longitude = cameraLongitude(anchor, date) + entry.turn;
       const p = geoOrthographic()
         .translate([cx, cy])
         .scale(r)
-        .rotate([s.yaw, -18, -12])
+        .rotate([-longitude, -cameraLatitude, -7])
         .clipAngle(90);
       const path = geoPath(p, ctx);
       ctx.clearRect(0, 0, width, height);
-      // Quiet orbit and the underside of a paper cut-out, not a glossy sphere.
-      ctx.save();
-      ctx.translate(cx, cy + r * 0.95);
-      ctx.scale(1, 0.14);
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2);
-      ctx.fillStyle = "#7e8b8620";
-      ctx.fill();
-      ctx.restore();
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(-0.2);
-      ctx.beginPath();
-      ctx.ellipse(0, 0, r * 1.38, r * 0.41, 0, 0, Math.PI * 2);
-      ctx.strokeStyle = "#b6aea055";
-      ctx.lineWidth = 0.8;
-      ctx.setLineDash([3, 7]);
-      ctx.stroke();
-      ctx.restore();
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = "#c9dadd";
-      ctx.fill();
+      ctx.globalAlpha = entry.opacity;
       ctx.save();
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.clip();
-      // Broad transparent washes retain the flat watercolor treatment.
+      ctx.fillStyle = "#d2e0df";
+      ctx.fillRect(0, 0, width, height);
       for (let i = 0; i < 9; i++) {
         ctx.beginPath();
         ctx.ellipse(
-          cx - r * 0.5 + i * r * 0.18,
-          cy + r * 0.1 + Math.sin(i) * r * 0.22,
-          r * 0.46,
-          r * 0.82,
+          cx - r * 0.65 + i * r * 0.19,
+          cy - r * 0.4 + Math.sin(i) * r * 0.15,
+          r * 0.43,
+          r * 0.7,
           0.3,
           0,
           Math.PI * 2,
         );
-        ctx.fillStyle = i % 2 ? "#f8f6e90b" : "#73949b08";
+        ctx.fillStyle = i % 2 ? "#fff9e71b" : "#809a9d0b";
         ctx.fill();
       }
-      if (land) {
+      if (land)
         for (const feature of land.features) {
           ctx.beginPath();
           path(feature);
-          ctx.fillStyle = "#d9ddba";
+          ctx.fillStyle = "#dce0c1";
           ctx.fill();
-          ctx.strokeStyle = "#83958199";
+          ctx.strokeStyle = "#8b9c8b90";
           ctx.lineWidth = 0.8;
           ctx.stroke();
         }
-      }
-      ctx.strokeStyle = "#748d8c35";
       ctx.lineWidth = 0.65;
+      ctx.strokeStyle = "#82999933";
       for (let lat = -60; lat <= 60; lat += 30) {
         ctx.beginPath();
         path({
@@ -144,126 +164,158 @@ export default function PaperGlobe({ stories, selected, onSelect, english }) {
         });
         ctx.stroke();
       }
-      // Fine pigment flecks, deterministic so the paper does not flicker.
-      for (let i = 0; i < 1200; i++) {
+      const sun = solarPosition(date),
+        nightCenter = [sun.longitude + 180, -sun.latitude];
+      // NOAA solar position determines the terminator. Translucent pigment bands
+      // soften twilight while the surrounding paper stays light.
+      for (const [radius, color] of [
+        [96, "#6a7e9d0c"],
+        [92, "#667b9c10"],
+        [90, "#637a9b34"],
+        [84, "#586e9629"],
+      ]) {
+        ctx.beginPath();
+        path(geoCircle().center(nightCenter).radius(radius)());
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+      for (let i = 0; i < 1100; i++) {
         const x = (((i * 7919) % 1009) / 1009) * 2 - 1,
           y = (((i * 3571) % 1013) / 1013) * 2 - 1;
-        ctx.fillStyle = i % 3 ? "#fffaf01a" : "#536c6a0b";
-        ctx.fillRect(cx + x * r, cy + y * r, 1.3, 0.9);
+        ctx.fillStyle = i % 3 ? "#fffaf016" : "#60797b0a";
+        ctx.fillRect(cx + x * r, cy + y * r, 1.4, 1);
       }
       ctx.restore();
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.strokeStyle = "#7f9690";
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(cx + 0.8, cy - 0.9, r + 2, 0, Math.PI * 2);
-      ctx.strokeStyle = "#7f969035";
-      ctx.lineWidth = 0.7;
+      ctx.strokeStyle = "#8a9b9166";
+      ctx.lineWidth = 1;
       ctx.stroke();
       const center = p.invert([cx, cy]);
-      live.current.stories.forEach((story, i) => {
+      live.current.stories.forEach((story, index) => {
         const element = markers.current.get(story.id),
           active = live.current.selected?.id === story.id;
-        const pos = p([story.lon, story.lat]),
-          front = geoDistance(center, [story.lon, story.lat]) < Math.PI * 0.485;
-        if (element) {
-          element.style.visibility = front ? "visible" : "hidden";
-          element.style.left = pos[0] + "px";
-          element.style.top = pos[1] + "px";
-          element.style.zIndex = active ? 3 : 2;
-          element.tabIndex = front ? 0 : -1;
+        const position = p([story.lon, story.lat]),
+          front = geoDistance(center, [story.lon, story.lat]) < Math.PI * 0.48;
+        const entrance = entranceFrame(elapsed, index, reduced);
+        const visible =
+          front &&
+          position[0] > 28 &&
+          position[0] < width - 28 &&
+          position[1] > 28 &&
+          position[1] < height - 12 &&
+          entrance.beam > 0;
+        if (!visible) {
+          if (element) {
+            element.style.visibility = "hidden";
+            element.tabIndex = -1;
+          }
+          return;
         }
-        if (!front) return;
-        const x = pos[0] - cx,
-          y = pos[1] - cy;
-        const extension = 1.43 + (i % 3) * 0.085;
-        const tx = cx + x * extension,
-          ty = cy + y * extension - r * 0.16;
+        const [sx, sy] = position,
+          dx = sx - cx,
+          dy = sy - cy;
+        let extension = (r * 1.2) / Math.hypot(dx, dy);
+        if (dy < 0) extension = Math.min(extension, (cy - 12) / -dy);
+        if (dx > 0) extension = Math.min(extension, (width - 12 - cx) / dx);
+        if (dx < 0) extension = Math.min(extension, (12 - cx) / dx);
+        const endX = cx + dx * extension,
+          endY = cy + dy * extension;
+        const tx = sx + (endX - sx) * entrance.beam,
+          ty = sy + (endY - sy) * entrance.beam;
+        const distance = Math.hypot(tx - sx, ty - sy);
+        if (distance < 1) return;
+        const nx = -(ty - sy) / distance,
+          ny = (tx - sx) / distance;
+        const wash = ctx.createLinearGradient(sx, sy, tx, ty);
+        wash.addColorStop(0, active ? "#c49a6455" : "#c49a6428");
+        wash.addColorStop(0.3, active ? "#c49a6468" : "#b99b6e3b");
+        wash.addColorStop(1, "#c49a6400");
         ctx.save();
+        ctx.globalAlpha = entry.opacity * entrance.beamOpacity;
         ctx.beginPath();
-        ctx.moveTo(pos[0] - 3, pos[1]);
-        ctx.lineTo(tx - 6, ty);
-        ctx.lineTo(tx + 6, ty);
-        ctx.lineTo(pos[0] + 3, pos[1]);
+        ctx.moveTo(sx - nx * 1.5, sy - ny * 1.5);
+        ctx.lineTo(tx - nx * 5, ty - ny * 5);
+        ctx.lineTo(tx + nx * 5, ty + ny * 5);
+        ctx.lineTo(sx + nx * 1.5, sy + ny * 1.5);
         ctx.closePath();
-        ctx.fillStyle = story.color + (active ? "2b" : "14");
+        ctx.fillStyle = wash;
         ctx.fill();
+        const ink = ctx.createLinearGradient(sx, sy, tx, ty);
+        ink.addColorStop(0, active ? "#9e794dcc" : "#9c855d85");
+        ink.addColorStop(0.45, active ? "#b18a57aa" : "#a58f6670");
+        ink.addColorStop(1, "#b18a5700");
         ctx.beginPath();
-        ctx.moveTo(...pos);
+        ctx.moveTo(sx, sy);
         ctx.lineTo(tx, ty);
-        ctx.lineWidth = active ? 1.6 : 0.85;
-        ctx.strokeStyle = story.color + (active ? "ef" : "99");
+        ctx.strokeStyle = ink;
+        ctx.lineWidth = active ? 1.6 : 0.8;
         ctx.stroke();
-        const pulse = reduced ? 0 : Math.sin(time / 1900 + i) * 0.5 + 0.5;
-        ctx.beginPath();
-        ctx.arc(tx, ty, active ? 3.2 : 1.8 + pulse * 0.5, 0, Math.PI * 2);
-        ctx.fillStyle = story.color;
-        ctx.fill();
-        if (active) {
-          ctx.beginPath();
-          ctx.arc(tx, ty, 8 + pulse * 4, 0, Math.PI * 2);
-          ctx.strokeStyle = story.color + "45";
-          ctx.lineWidth = 0.8;
-          ctx.stroke();
-        }
         ctx.restore();
+        if (element) {
+          element.style.visibility = "visible";
+          element.style.opacity = entry.opacity * entrance.beamOpacity;
+          const fraction = [0.65, 0.25, 0.5, 0.8][index % 4] * entrance.beam;
+          element.style.transform = `translate3d(${sx + (endX - sx) * fraction - 22}px,${sy + (endY - sy) * fraction - 22}px,0)`;
+          element.style.zIndex = 2;
+          element.tabIndex = 0;
+        }
       });
-      frame = requestAnimationFrame(draw);
+      ctx.globalAlpha = 1;
+      container.current.dataset.phase =
+        elapsed < 1400 ? "arriving" : elapsed < 4200 ? "lighting" : "live";
+      container.current.dataset.cameraLongitude = cameraLongitude(
+        anchor,
+        date,
+      ).toFixed(5);
     };
     frame = requestAnimationFrame(draw);
     return () => {
       cancelled = true;
       cancelAnimationFrame(frame);
       ro.disconnect();
+      io.disconnect();
     };
-  }, []);
-  const turn = (n) => {
-    state.current.target = null;
-    state.current.yaw += n;
-  };
+  }, [viewer.timeZone, viewer.offsetMinutes]);
   return (
-    <div className="globe-stage" ref={container}>
-      <span className="globe-caption">
-        {english
-          ? "Every little world has a light."
-          : "每一个小世界，都有自己的光。"}
-      </span>
-      <canvas
-        ref={canvas}
-        aria-hidden="true"
-        onPointerDown={(e) => {
-          state.current.drag = { x: e.clientX, yaw: state.current.yaw };
-          state.current.target = null;
-          e.currentTarget.setPointerCapture(e.pointerId);
-        }}
-        onPointerMove={(e) => {
-          const d = state.current.drag;
-          if (d) state.current.yaw = d.yaw + (e.clientX - d.x) * 0.35;
-        }}
-        onPointerUp={() => {
-          state.current.drag = null;
-        }}
-        onPointerCancel={() => {
-          state.current.drag = null;
-        }}
-      />
+    <div
+      className="globe-stage"
+      ref={container}
+      role="group"
+      aria-label={
+        english
+          ? "The Earth now, near your timezone"
+          : "此刻的地球，时区附近的光"
+      }
+    >
+      <div className="globe-now">
+        <span>{english ? "THE EARTH, NOW" : "此刻，地球这一侧"}</span>
+        <time dateTime={now.toISOString()}>
+          {new Intl.DateTimeFormat(english ? "en-GB" : "zh-CN", {
+            timeZone: viewer.timeZone,
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }).format(now)}{" "}
+          <small>{viewer.label}</small>
+        </time>
+      </div>
+      <canvas ref={canvas} aria-hidden="true" />
       <div className="globe-lights">
         {stories.map((story) => (
           <button
             key={story.id}
+            data-story-id={story.id}
             ref={(node) => {
               if (node) markers.current.set(story.id, node);
               else markers.current.delete(story.id);
             }}
             className={`globe-light ${selected?.id === story.id ? "is-selected" : ""}`}
-            style={{ "--light": story.color, visibility: "hidden" }}
+            style={{ visibility: "hidden" }}
             aria-label={`${english ? "Meet" : "遇见"} ${story.name} · ${story.region[english ? "en" : "zh"]}`}
             aria-pressed={selected?.id === story.id}
             onClick={() => live.current.onSelect(story)}
           >
-            <span />
             <small>{story.name}</small>
           </button>
         ))}
@@ -271,42 +323,20 @@ export default function PaperGlobe({ stories, selected, onSelect, english }) {
       {mapError && (
         <p className="globe-map-error">
           {english
-            ? "The map could not load. You can still browse the stories below."
-            : "地图暂时没载入，仍可从下方的故事里探索。"}
+            ? "The map could not load. The nearby papers are still available below."
+            : "地图暂时没载入，仍可从下方阅读附近的小报。"}
         </p>
       )}
-      <div className="globe-controls">
-        <button
-          onClick={() => turn(-35)}
-          aria-label={english ? "Rotate west" : "向西转动地球"}
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <span>{english ? "Drag to explore" : "拖动地球，遇见远方"}</span>
-        <button
-          onClick={() => turn(35)}
-          aria-label={english ? "Rotate east" : "向东转动地球"}
-        >
-          <ArrowRight size={18} />
-        </button>
-        <button
-          aria-label={
-            auto
-              ? english
-                ? "Pause rotation"
-                : "暂停转动"
-              : english
-                ? "Auto rotate"
-                : "自动转动"
-          }
-          aria-pressed={auto}
-          onClick={() => {
-            state.current.auto = !auto;
-            setAuto(!auto);
-          }}
-        >
-          {auto ? <Pause size={16} /> : <Play size={16} />}
-        </button>
+      <div className="globe-live-caption">
+        <span>
+          <Sun size={14} />
+          {english ? "Day" : "昼"}
+          <Moon size={14} />
+          {english ? "Night" : "夜"}
+        </span>
+        <span>
+          {english ? "Real time · Nearby timezones" : "真实时间 · 附近时区"}
+        </span>
       </div>
     </div>
   );

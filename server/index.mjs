@@ -206,7 +206,7 @@ app.get(prefix + "/api/health", (req, res) =>
   res.json({
     ok: true,
     configured: !!process.env.ARK_API_KEY,
-    version: "1.1.0",
+    version: "1.2.0",
     capabilities: {
       text: true,
       audioInput: true,

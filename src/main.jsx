@@ -422,7 +422,7 @@ function Home({ begin, toSample, showInfo, openWorld }) {
             <strong>
               纸上星球<small>模拟社区</small>
             </strong>
-            <p>同一颗星球，许多种长大。转一转，遇见远方的小世界。</p>
+            <p>同一颗星球，许多种长大。跟随昼夜，遇见附近的小世界。</p>
           </div>
         </div>
         <button onClick={openWorld}>

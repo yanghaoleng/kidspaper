@@ -14,8 +14,11 @@ import {
   CircleNotch,
   Stamp,
   Sun,
+  ArrowLeft,
 } from "@phosphor-icons/react";
 import PaperGlobe from "./PaperGlobe";
+import PlanetModal from "./PlanetModal";
+import { viewerTimezone, nearbyStories } from "./planet-time.mjs";
 import {
   communityStories,
   dailyStories,
@@ -40,7 +43,7 @@ const copy = {
         许多种<span>小小的光。</span>
       </>
     ),
-    intro: "每一道光，都是一个被认真听见的小世界。转一转，遇见远方的想象。",
+    intro: "昼夜走过纸上的山海，你的时区附近，一些小小的想象正在亮起。",
     random: "随机遇见一束光",
     read: "展开这份小报",
     close: "收起小报",
@@ -92,7 +95,7 @@ const copy = {
       "这是一份预设的虚构小报，只用来体验点亮与收信。你的私人档案仍留在收藏架。",
     practiceGo: "用虚构样刊点亮",
     practiceTitle: "你的光，也值得被看见",
-    caption: "地图仅表示虚构故事所在的大致地区，不代表儿童位置。",
+    caption: "按设备时区筛选附近的虚构故事，不读取定位，不代表儿童位置。",
     aiWorking: "正在把两个小世界接起来…",
     aiLabel: "AI 共创 · 虚构故事",
     image: "为故事画一张画",
@@ -101,7 +104,7 @@ const copy = {
     return: "回到星球",
     localOnly: "本机体验",
     pick: "选两份小报，交换一点想象",
-    readAll: "今天的其他小世界",
+    readAll: "今天，附近的小世界",
     reset: "重试",
     noAI: "暂时没接通，请稍后再试。",
     showcase: "三种玩法，一起把世界变大一点。",
@@ -121,7 +124,7 @@ const copy = {
       </>
     ),
     intro:
-      "Every light is a little world someone took time to hear. Turn the planet and meet an imagination far away.",
+      "Day and night pass over a paper Earth. Near your timezone, little imaginations are coming to light.",
     random: "Meet a light by chance",
     read: "Unfold this little paper",
     close: "Fold the paper",
@@ -175,7 +178,7 @@ const copy = {
     practiceGo: "Light the fictional sample",
     practiceTitle: "Your light belongs here too",
     caption:
-      "Map markers indicate broad fictional story regions, never children's locations.",
+      "Fictional stories near your device timezone. No location access or children's positions.",
     aiWorking: "Bringing two little worlds together…",
     aiLabel: "AI co-creation · Fictional story",
     image: "Illustrate this encounter",
@@ -184,7 +187,7 @@ const copy = {
     return: "Back to the planet",
     localOnly: "On this device",
     pick: "Choose two papers and swap a little imagination",
-    readAll: "More little worlds today",
+    readAll: "Little worlds nearby today",
     reset: "Try again",
     noAI: "We could not connect. Please try again later.",
     showcase: "Three ways to make the world a little bigger.",
@@ -221,7 +224,7 @@ const waitText = (t) => (
   </>
 );
 
-export default function Community({ api, Modal, notify }) {
+export default function Community({ api, notify }) {
   const [locale, setLocale] = useState(() =>
     navigator.language.startsWith("zh") ? "zh" : "en",
   );
@@ -229,7 +232,12 @@ export default function Community({ api, Modal, notify }) {
     t = copy[locale];
   const [edition, setEdition] = useState(editionKey),
     [stories, setStories] = useState(() => dailyStories());
-  const [selected, setSelected] = useState(() => dailyStories()[0]);
+  const [now, setNow] = useState(() => new Date());
+  const [viewer, setViewer] = useState(() => viewerTimezone());
+  const localStories = nearbyStories(stories, viewer, now);
+  const [selected, setSelected] = useState(
+    () => nearbyStories(dailyStories(), viewer)[0] || dailyStories()[0],
+  );
   const [tab, setTab] = useState("today"),
     [detail, setDetail] = useState(false),
     [practice, setPractice] = useState(false);
@@ -291,12 +299,21 @@ export default function Community({ api, Modal, notify }) {
   }, [social.lit, hasReceived]);
   useEffect(() => {
     const update = () => {
+      const date = new Date();
+      setNow(date);
+      const zone = viewerTimezone(date);
+      setViewer((old) =>
+        old.timeZone === zone.timeZone &&
+        old.offsetMinutes === zone.offsetMinutes
+          ? old
+          : zone,
+      );
       const now = editionKey();
       if (now !== edition) {
         const list = dailyStories();
         setEdition(now);
         setStories(list);
-        setSelected(list[0]);
+        setSelected(nearbyStories(list, zone, date)[0] || list[0]);
       }
     };
     const timer = setInterval(update, 30000);
@@ -312,11 +329,39 @@ export default function Community({ api, Modal, notify }) {
     setError("");
   };
   const random = () => {
-    const options = stories.filter((s) => s.id !== selected.id);
+    const options = visiblePapers().filter((s) => s.id !== selected.id);
+    if (!options.length) {
+      if (localStories[0]) {
+        choose(localStories[0]);
+        setDetail(true);
+      }
+      return;
+    }
     choose(
       options[crypto.getRandomValues(new Uint32Array(1))[0] % options.length],
     );
-    if (matchMedia("(max-width: 760px)").matches) setDetail(true);
+    setDetail(true);
+  };
+  // A cropped horizon can hide a nearby place. Keyboard navigation follows only
+  // the beams that are actually visible; it never rotates the camera to find one.
+  function visiblePapers() {
+    const lights = [
+      ...document.querySelectorAll(".globe-light[data-story-id]"),
+    ].filter((element) => getComputedStyle(element).visibility === "visible");
+    return lights.length
+      ? localStories.filter((story) =>
+          lights.some((light) => light.dataset.storyId === story.id),
+        )
+      : localStories;
+  }
+  const stepPaper = (direction) => {
+    const candidates = visiblePapers();
+    if (!candidates.length) return;
+    let index = candidates.findIndex((story) => story.id === selected.id);
+    if (index < 0) index = direction > 0 ? -1 : 0;
+    choose(
+      candidates[(index + direction + candidates.length) % candidates.length],
+    );
   };
   const unread = social.inbox.filter((n) => !n.read).length;
   const sendLike = () => {
@@ -419,12 +464,13 @@ export default function Community({ api, Modal, notify }) {
       translated[selected.id + ":" + reading];
   const display = current || selected.text;
   const native = showOriginal ? selected.language : current ? reading : "zh";
-  const ensureSelected = [...stories];
-  if (social.lit && !ensureSelected.some((s) => s.id === "garden"))
-    ensureSelected.push(communityStories[0]);
-  if (!ensureSelected.some((s) => s.id === selected.id))
-    ensureSelected.push(selected);
   const changeTab = (value) => {
+    if (
+      value === "today" &&
+      localStories.length &&
+      !localStories.some((story) => story.id === selected.id)
+    )
+      choose(localStories[0]);
     setTab(value);
     setError("");
   };
@@ -627,7 +673,11 @@ export default function Community({ api, Modal, notify }) {
               <p>{t.intro}</p>
             </div>
             <div className="planet-visit">
-              <button className="planet-random" onClick={random}>
+              <button
+                className="planet-random"
+                onClick={random}
+                disabled={!localStories.length}
+              >
                 <Shuffle size={20} />
                 {t.random}
                 <ArrowUpRight size={18} />
@@ -641,16 +691,22 @@ export default function Community({ api, Modal, notify }) {
           <div className="planet-explorer">
             <div className="planet-map">
               <PaperGlobe
-                stories={ensureSelected}
+                stories={localStories}
                 selected={selected}
                 onSelect={(story) => {
                   choose(story);
-                  if (matchMedia("(max-width: 760px)").matches) setDetail(true);
+                  setDetail(true);
                 }}
                 english={en}
+                viewer={viewer}
+                now={now}
               />
               <div className="planet-map-foot">
-                <span>{t.batch}</span>
+                <span>
+                  {en
+                    ? `${localStories.length} fictional papers nearby · within 2 timezone hours`
+                    : `附近 ${localStories.length} 份虚构小报 · 时差不超过 2 小时`}
+                </span>
                 <button
                   onClick={() =>
                     social.lit ? notify(t.lit) : setPractice(true)
@@ -661,13 +717,24 @@ export default function Community({ api, Modal, notify }) {
                 </button>
               </div>
             </div>
-            <article className="encounter-paper" key={selected.id}>
-              <PaperContent />
-              <button className="unfold-button" onClick={() => setDetail(true)}>
-                {t.read}
-                <ArrowUpRight size={17} />
-              </button>
-            </article>
+            {localStories.length ? (
+              <article className="encounter-paper" key={selected.id}>
+                {PaperContent({})}
+                <button
+                  className="unfold-button"
+                  onClick={() => setDetail(true)}
+                >
+                  {t.read}
+                  <ArrowUpRight size={17} />
+                </button>
+              </article>
+            ) : (
+              <div className="planet-nearby-empty">
+                {en
+                  ? "No fictional papers near this timezone in today's selection. A new selection arrives tomorrow."
+                  : "今天的选集中，这个时区附近还没有虚构小报。明天会换一页新的相遇。"}
+              </div>
+            )}
           </div>
           <p className="planet-simulation">
             <span>{t.demo}</span>
@@ -679,7 +746,7 @@ export default function Community({ api, Modal, notify }) {
               <span>{t.caption}</span>
             </div>
             <div className="story-strip">
-              {stories.map((s, i) => (
+              {localStories.map((s, i) => (
                 <button
                   className={`story-ticket ${selected.id === s.id ? "selected" : ""}`}
                   key={s.id}
@@ -1052,83 +1119,101 @@ export default function Community({ api, Modal, notify }) {
             : "当前无法保存到本机，离开页面后互动记录会丢失。"}
         </p>
       )}
-      {detail && (
-        <Modal onClose={() => setDetail(false)}>
-          <article className="full-community-paper">
-            <PaperContent full />
-            {error && <p role="alert">{error}</p>}
-            <button
-              className="text-link"
-              onClick={() => {
-                random();
-                setShowOriginal(false);
-              }}
-            >
-              <Shuffle size={17} />
-              {t.next}
-            </button>
-          </article>
-        </Modal>
-      )}
-      {practice && (
-        <Modal onClose={() => setPractice(false)}>
-          <div className="practice-letter">
-            <Sparkle size={42} weight="thin" />
-            <h2>{t.practiceTitle}</h2>
-            <p>{t.practiceText}</p>
-            <div className="practice-preview">
-              <small>{t.printed}</small>
-              <h3>
-                {communityStories[0].name} ·{" "}
-                {en
-                  ? communityStories[0].english.title
-                  : communityStories[0].text.title}
-              </h3>
-              <p>
-                “
-                {en
-                  ? communityStories[0].english.quote
-                  : communityStories[0].text.quote}
-                ”
-              </p>
-            </div>
-            <button className="primary" onClick={addPractice}>
-              <Sparkle size={19} />
-              {t.practiceGo}
-            </button>
+      <PlanetModal
+        open={detail}
+        onClose={() => setDetail(false)}
+        onNext={() => stepPaper(1)}
+        onPrevious={() => stepPaper(-1)}
+        label={en ? "Nearby little paper" : "附近的童年小报"}
+      >
+        <article className="full-community-paper" key={selected.id}>
+          {PaperContent({ full: true })}
+          {error && <p role="alert">{error}</p>}
+        </article>
+        <nav
+          className="planet-paper-navigation"
+          aria-label={en ? "Switch papers" : "切换小报"}
+        >
+          <button
+            disabled={localStories.length < 2}
+            onClick={() => stepPaper(-1)}
+          >
+            <ArrowLeft size={17} />
+            {en ? "Previous light" : "上一束"}
+          </button>
+          <span>{en ? "← → Switch · Esc Close" : "← → 切换 · Esc 关闭"}</span>
+          <button
+            disabled={localStories.length < 2}
+            onClick={() => stepPaper(1)}
+          >
+            {en ? "Next light" : "下一束"}
+            <ArrowRight size={17} />
+          </button>
+        </nav>
+      </PlanetModal>
+      <PlanetModal
+        open={practice}
+        onClose={() => setPractice(false)}
+        label={t.practiceTitle}
+      >
+        <div className="practice-letter">
+          <Sparkle size={42} weight="thin" />
+          <h2>{t.practiceTitle}</h2>
+          <p>{t.practiceText}</p>
+          <div className="practice-preview">
+            <small>{t.printed}</small>
+            <h3>
+              {communityStories[0].name} ·{" "}
+              {en
+                ? communityStories[0].english.title
+                : communityStories[0].text.title}
+            </h3>
+            <p>
+              “
+              {en
+                ? communityStories[0].english.quote
+                : communityStories[0].text.quote}
+              ”
+            </p>
           </div>
-        </Modal>
-      )}
-      {consentTask && (
-        <Modal onClose={() => setConsentTask(null)}>
-          <div className="planet-ai-consent">
-            <Sparkle size={35} weight="thin" />
-            <h2>{t.consentTitle}</h2>
-            <p>{t.consent}</p>
-            <label className="consent-check">
-              <input
-                type="checkbox"
-                checked={agree}
-                onChange={(e) => setAgree(e.target.checked)}
-              />
-              {t.agree}
-            </label>
-            <button
-              className="primary"
-              disabled={!agree}
-              onClick={() => {
-                const task = consentTask;
-                consent.current = true;
-                setConsentTask(null);
-                runAI(task);
-              }}
-            >
-              {t.confirm}
-              <ArrowRight size={17} />
-            </button>
-          </div>
-        </Modal>
-      )}
+          <button className="primary" onClick={addPractice}>
+            <Sparkle size={19} />
+            {t.practiceGo}
+          </button>
+        </div>
+      </PlanetModal>
+      <PlanetModal
+        open={!!consentTask}
+        onClose={() => setConsentTask(null)}
+        label={t.consentTitle}
+      >
+        <div className="planet-ai-consent">
+          <Sparkle size={35} weight="thin" />
+          <h2>{t.consentTitle}</h2>
+          <p>{t.consent}</p>
+          <label className="consent-check">
+            <input
+              type="checkbox"
+              checked={agree}
+              onChange={(e) => setAgree(e.target.checked)}
+            />
+            {t.agree}
+          </label>
+          <button
+            className="primary"
+            disabled={!agree}
+            onClick={() => {
+              const task = consentTask;
+              consent.current = true;
+              setConsentTask(null);
+              runAI(task);
+            }}
+          >
+            {t.confirm}
+            <ArrowRight size={17} />
+          </button>
+        </div>
+      </PlanetModal>
     </section>
   );
 }
