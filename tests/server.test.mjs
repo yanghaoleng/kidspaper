@@ -47,7 +47,38 @@ test("API consent, cross-origin, input, report provenance, and private static bo
     assert.equal(body.model, "test-model");
     const content = body.messages[0].content;
     let result;
-    if (content.includes("制作一份")) {
+    if (content.includes("现在担任忠实的翻译编辑")) {
+      const input = JSON.parse(body.messages[1].content);
+      assert.deepEqual(Object.keys(input).sort(), [
+        "originalQuote",
+        "targetLanguage",
+        "text",
+      ]);
+      assert.equal(input.targetLanguage, "日本語");
+      result = {
+        title: "歩く庭",
+        quote: "小さな扉がほしい。",
+        dream: "動物たちと旅に出る庭です。",
+        care: "一緒にゆっくり歩こう。",
+        observation: "この会話での小さな観察です。",
+        activity: "紙で小さな家を作ろう。",
+      };
+    } else if (content.includes("当前任务是纸上星球")) {
+      const input = JSON.parse(body.messages[1].content);
+      assert.deepEqual(Object.keys(input).sort(), [
+        "mode",
+        "sources",
+        "targetLanguage",
+      ]);
+      assert.equal(input.sources.length, 2);
+      assert.equal(input.sources[0].name, "小禾");
+      result = {
+        title: "花园遇见面包店",
+        body: "有一天，会走路的花园停在云朵面包店门前。",
+        invitation: "你想邀请谁先敲门？",
+        activity: "一起画一张邀请卡。",
+      };
+    } else if (content.includes("制作一份")) {
       assert.equal(
         JSON.parse(body.messages[1].content).answers.every(
           (a) => a.who === "child",
@@ -157,4 +188,56 @@ test("API consent, cross-origin, input, report provenance, and private static bo
   for (const p of ["/.env", "/server/index.mjs", "/package.json"])
     assert.equal((await fetch(root + p)).status, 404);
   assert.equal((await fetch(root + "/api/health")).status, 200);
+  assert.equal(
+    (
+      await post("community/translate", {
+        storyId: "garden",
+        targetLanguage: "ja",
+      })
+    ).status,
+    401,
+  );
+  const before = calls;
+  for (const body of [
+    { storyId: "private-child-record", targetLanguage: "ja" },
+    { storyId: "garden", targetLanguage: "not-supported" },
+  ]) {
+    assert.equal((await post("community/translate", body, cookie)).status, 400);
+  }
+  assert.equal(
+    (
+      await post(
+        "community/create",
+        { storyIds: ["garden", "garden"], mode: "story", targetLanguage: "zh" },
+        cookie,
+      )
+    ).status,
+    400,
+  );
+  assert.equal(calls, before);
+  const translated = await post(
+    "community/translate",
+    {
+      storyId: "garden",
+      targetLanguage: "ja",
+      privateArchive: { name: "must not be sent" },
+    },
+    cookie,
+  );
+  assert.equal(translated.status, 200);
+  assert.equal((await translated.json()).translation.title, "歩く庭");
+  const created = await post(
+    "community/create",
+    {
+      storyIds: ["garden", "cloud"],
+      mode: "story",
+      targetLanguage: "zh",
+      answers: sample.answers,
+    },
+    cookie,
+  );
+  assert.equal(created.status, 200);
+  const createdData = await created.json();
+  assert.equal(createdData.fictional, true);
+  assert.equal(createdData.creation.title, "花园遇见面包店");
 });

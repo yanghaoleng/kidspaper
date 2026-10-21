@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowRight,
@@ -25,6 +25,7 @@ import {
   PencilSimple,
   ShieldCheck,
   ChatCircle,
+  GlobeHemisphereWest,
 } from "@phosphor-icons/react";
 import { allQuestions, chapters } from "./questions";
 import { sample } from "./sample";
@@ -38,6 +39,8 @@ import {
 import { startRecording } from "./audio";
 import "./style.css";
 import WorldScene from "./WorldScene";
+const Community = lazy(() => import("./Community"));
+import "./community.css";
 const BASE = import.meta.env.BASE_URL,
   heroImage = BASE + "images/little-world.webp";
 async function api(path, data) {
@@ -77,13 +80,23 @@ function Brand({ onClick }) {
   );
 }
 function App() {
-  const [view, setView] = useState("home"),
+  const [view, setView] = useState(
+      location.hash === "#planet" ? "community" : "home",
+    ),
     [issue, setIssue] = useState(null),
     [issues, setIssues] = useState([]),
     [modal, setModal] = useState(null),
     [notice, setNotice] = useState(""),
     [consent, setConsent] = useState(false);
   const notify = (s) => setNotice(s);
+  const openWorld = () => {
+    setView("community");
+    history.replaceState(
+      null,
+      "",
+      location.pathname + location.search + "#planet",
+    );
+  };
   useEffect(() => {
     getIssues()
       .then(setIssues)
@@ -96,6 +109,8 @@ function App() {
   }, [notice]);
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
+    if (view !== "community" && location.hash === "#planet")
+      history.replaceState(null, "", location.pathname + location.search);
   }, [view]);
   const refresh = () =>
     getIssues()
@@ -163,6 +178,7 @@ function App() {
               怎么一起玩
             </button>
             <button onClick={toSample}>翻翻样刊</button>
+            <button onClick={openWorld}>纸上星球</button>
             <button
               onClick={() => {
                 refresh();
@@ -183,7 +199,22 @@ function App() {
             begin={begin}
             toSample={toSample}
             showInfo={() => setModal("about")}
+            openWorld={openWorld}
           />
+        )}
+        {view === "community" && (
+          <Suspense
+            fallback={
+              <div
+                className="wrap"
+                style={{ paddingTop: 70, paddingBottom: 70 }}
+              >
+                <Loading>正在打开纸上星球…</Loading>
+              </div>
+            }
+          >
+            <Community api={api} Modal={Modal} notify={notify} />
+          </Suspense>
         )}
         {view === "activity" && issue && (
           <Activity
@@ -380,10 +411,25 @@ function App() {
     </>
   );
 }
-function Home({ begin, toSample, showInfo }) {
+function Home({ begin, toSample, showInfo, openWorld }) {
   return (
     <>
       <WorldScene intro begin={begin} toSample={toSample} />
+      <section className="community-entry">
+        <div>
+          <GlobeHemisphereWest size={39} weight="thin" />
+          <div>
+            <strong>
+              纸上星球<small>模拟社区</small>
+            </strong>
+            <p>同一颗星球，许多种长大。转一转，遇见远方的小世界。</p>
+          </div>
+        </div>
+        <button onClick={openWorld}>
+          去看看那些小小的光
+          <ArrowUpRight size={19} />
+        </button>
+      </section>
       <section className="intro-strip wrap">
         <span>没有标准答案。</span>
         <p>
