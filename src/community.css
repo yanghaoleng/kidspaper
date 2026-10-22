@@ -1690,3 +1690,214 @@
     display: none;
   }
 }
+
+/* The map is the entire lower page; papers live only on their beams. */
+.community-map-view {
+  min-height: calc(100svh - 94px);
+  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+main:has(.community-map-view) + .footer {
+  display: none;
+}
+.community-map-view .planet-bar {
+  width: 100%;
+  flex-shrink: 0;
+}
+.planet-today {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.planet-today .planet-intro {
+  width: 100%;
+  padding: 22px 48px 0;
+}
+.planet-map-notice {
+  margin: 12px auto 0;
+  padding: 0 48px;
+  width: 100%;
+  max-width: 1340px;
+  font-size: 10px;
+  line-height: 1.8;
+  color: #849087;
+}
+.planet-today .planet-explorer {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  max-width: none;
+  padding: 0;
+  margin: 0;
+  gap: 0;
+  align-items: stretch;
+}
+.planet-today .planet-map {
+  width: 100%;
+  position: relative;
+  min-height: 340px;
+  flex: 1;
+}
+.planet-today .globe-stage {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  margin: 0;
+  border-radius: 0;
+}
+.planet-today .globe-now {
+  left: clamp(23px, 4vw, 64px);
+  top: 22px;
+}
+.planet-today .planet-map-foot {
+  position: absolute;
+  left: clamp(23px, 4vw, 64px);
+  right: clamp(23px, 4vw, 64px);
+  bottom: 44px;
+  z-index: 4;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  flex-direction: row;
+  align-items: center;
+  pointer-events: none;
+}
+.planet-today .planet-map-foot > span {
+  color: #526c6b;
+  background: #fffaf0b8;
+  padding: 4px 8px;
+}
+.planet-today .planet-map-foot button {
+  pointer-events: auto;
+  background: #fffaf0dc;
+  padding: 8px 12px;
+}
+.planet-today .globe-live-caption {
+  left: clamp(23px, 4vw, 64px);
+  right: clamp(23px, 4vw, 64px);
+  bottom: 13px;
+}
+.globe-light .globe-nickname {
+  opacity: 1;
+  top: 28px;
+  font-size: 10px;
+}
+.globe-light {
+  z-index: 2;
+}
+.globe-light:hover,
+.globe-light:focus-visible {
+  z-index: 5;
+}
+.globe-tooltip {
+  position: absolute;
+  top: 54px;
+  left: 50%;
+  width: 224px;
+  transform: translate(-50%, 4px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  text-align: left;
+  padding: 15px 17px;
+  color: #485b5d;
+  background: #fffaf0f7;
+  border: 1px solid #c8cbbb;
+  border-radius: 3px;
+  box-shadow: 0 6px 20px #43565210;
+  transition:
+    opacity 120ms var(--planet-ease-out),
+    transform 120ms var(--planet-ease-out),
+    visibility 120ms;
+}
+.globe-tooltip > span,
+.globe-tooltip strong {
+  display: block;
+}
+.globe-tooltip strong {
+  font-family: var(--serif);
+  font-size: 17px;
+  margin-bottom: 7px;
+}
+.globe-tooltip em {
+  font: normal 10px sans-serif;
+  color: #7d867b;
+  margin-left: 6px;
+}
+.globe-tooltip > span {
+  font-size: 11px;
+  line-height: 1.7;
+}
+.globe-tooltip .globe-tooltip-title {
+  margin-top: 9px;
+  font-family: var(--serif);
+  font-size: 14px;
+}
+.globe-tooltip .globe-tooltip-hint {
+  margin-top: 10px;
+  font-size: 9px;
+  color: #8a8e7e;
+}
+.globe-light[data-tooltip-side="right"] .globe-tooltip {
+  left: 0;
+  transform: translate(0, 4px);
+}
+.globe-light[data-tooltip-side="left"] .globe-tooltip {
+  left: auto;
+  right: 0;
+  transform: translate(0, 4px);
+}
+.globe-light[data-tooltip-vertical="above"] .globe-tooltip {
+  top: auto;
+  bottom: 24px;
+}
+.globe-light:focus-visible .globe-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+.globe-light:focus-visible[data-tooltip-side="right"] .globe-tooltip,
+.globe-light:focus-visible[data-tooltip-side="left"] .globe-tooltip {
+  transform: translate(0, 0);
+}
+@media (hover: hover) and (pointer: fine) {
+  .globe-light:hover .globe-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+  }
+  .globe-light:hover[data-tooltip-side="right"] .globe-tooltip,
+  .globe-light:hover[data-tooltip-side="left"] .globe-tooltip {
+    transform: translate(0, 0);
+  }
+}
+@media (max-width: 760px) {
+  .community-map-view {
+    min-height: calc(100svh - 77px);
+  }
+  .planet-today .planet-intro {
+    padding: 22px 23px 0;
+  }
+  .planet-map-notice {
+    padding: 0 23px;
+    font-size: 9px;
+  }
+  .planet-today .planet-map {
+    min-height: 420px;
+  }
+  .planet-today .planet-map-foot {
+    gap: 8px;
+  }
+  .planet-today .planet-map-foot > span {
+    max-width: 155px;
+  }
+  .planet-today .planet-map-foot button {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .globe-tooltip {
+    transition: none;
+  }
+}

@@ -52,7 +52,7 @@ export default function PaperGlobe({
       ? latitudes[Math.floor(latitudes.length / 2)]
       : 25;
     // A low fixed camera frames an open horizon. The timezone is not a GPS fix.
-    const cameraLatitude = Math.max(-65, Math.min(20, representative - 40));
+    const cameraLatitude = Math.max(-75, Math.min(10, representative - 65));
     fetch(import.meta.env.BASE_URL + "data/land.geojson")
       .then((r) => {
         if (!r.ok) throw Error();
@@ -101,9 +101,9 @@ export default function PaperGlobe({
       dirty.current = false;
       const date = new Date(),
         entry = entranceFrame(elapsed, 0, reduced);
-      const r = Math.max(width * 0.55, height * 1.02),
+      const r = Math.max(width * 0.72, height * 0.95),
         cx = width * 0.5,
-        cy = height * 1.25 + 10 * (1 - entry.opacity);
+        cy = r + height * 0.18 + 10 * (1 - entry.opacity);
       const longitude = cameraLongitude(anchor, date) + entry.turn;
       const p = geoOrthographic()
         .translate([cx, cy])
@@ -257,7 +257,12 @@ export default function PaperGlobe({
           element.style.opacity = entry.opacity * entrance.beamOpacity;
           const fraction = [0.65, 0.25, 0.5, 0.8][index % 4] * entrance.beam;
           element.style.transform = `translate3d(${sx + (endX - sx) * fraction - 22}px,${sy + (endY - sy) * fraction - 22}px,0)`;
-          element.style.zIndex = 2;
+          const anchorX = sx + (endX - sx) * fraction;
+          const anchorY = sy + (endY - sy) * fraction;
+          element.dataset.tooltipSide =
+            anchorX < 130 ? "right" : anchorX > width - 130 ? "left" : "center";
+          element.dataset.tooltipVertical =
+            anchorY > height - 170 ? "above" : "below";
           element.tabIndex = 0;
         }
       });
@@ -316,15 +321,33 @@ export default function PaperGlobe({
             aria-pressed={selected?.id === story.id}
             onClick={() => live.current.onSelect(story)}
           >
-            <small>{story.name}</small>
+            <small className="globe-nickname">{story.name}</small>
+            <span className="globe-tooltip" aria-hidden="true">
+              <strong>
+                {story.name}{" "}
+                <em>
+                  {story.age}
+                  {english ? " years" : " 岁"}
+                </em>
+              </strong>
+              <span>{story.region[english ? "en" : "zh"]}</span>
+              <span className="globe-tooltip-title">
+                {english ? story.english.title : story.text.title}
+              </span>
+              <span className="globe-tooltip-hint">
+                {english
+                  ? "Fictional setting · Click to read"
+                  : "虚构故事地点 · 点击阅读小报"}
+              </span>
+            </span>
           </button>
         ))}
       </div>
       {mapError && (
         <p className="globe-map-error">
           {english
-            ? "The map could not load. The nearby papers are still available below."
-            : "地图暂时没载入，仍可从下方阅读附近的小报。"}
+            ? "The map could not load. Please refresh to try again."
+            : "地图暂时没载入，请刷新页面重试。"}
         </p>
       )}
       <div className="globe-live-caption">

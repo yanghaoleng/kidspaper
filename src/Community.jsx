@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
-  Shuffle,
   Heart,
   EnvelopeSimple,
   Sparkle,
@@ -328,20 +327,6 @@ export default function Community({ api, notify }) {
     setShowOriginal(false);
     setError("");
   };
-  const random = () => {
-    const options = visiblePapers().filter((s) => s.id !== selected.id);
-    if (!options.length) {
-      if (localStories[0]) {
-        choose(localStories[0]);
-        setDetail(true);
-      }
-      return;
-    }
-    choose(
-      options[crypto.getRandomValues(new Uint32Array(1))[0] % options.length],
-    );
-    setDetail(true);
-  };
   // A cropped horizon can hide a nearby place. Keyboard navigation follows only
   // the beams that are actually visible; it never rotates the camera to find one.
   function visiblePapers() {
@@ -610,7 +595,10 @@ export default function Community({ api, notify }) {
     );
   }
   return (
-    <section className="community" lang={locale}>
+    <section
+      className={`community ${tab === "today" ? "community-map-view" : ""}`}
+      lang={locale}
+    >
       <div className="planet-bar">
         <div className="planet-name">
           <GlobeHemisphereWest size={22} weight="light" />
@@ -661,6 +649,7 @@ export default function Community({ api, notify }) {
       {tab === "today" && (
         <div
           role="tabpanel"
+          className="planet-today"
           id="planet-panel-today"
           aria-labelledby="planet-tab-today"
         >
@@ -673,21 +662,13 @@ export default function Community({ api, notify }) {
               <p>{t.intro}</p>
             </div>
             <div className="planet-visit">
-              <button
-                className="planet-random"
-                onClick={random}
-                disabled={!localStories.length}
-              >
-                <Shuffle size={20} />
-                {t.random}
-                <ArrowUpRight size={18} />
-              </button>
               <span>
                 <Sun size={15} />
                 {t.refresh} · {edition.replaceAll("-", ".")}
               </span>
             </div>
           </div>
+          <p className="planet-map-notice">{t.demoNote}</p>
           <div className="planet-explorer">
             <div className="planet-map">
               <PaperGlobe
@@ -716,67 +697,6 @@ export default function Community({ api, notify }) {
                   {social.lit ? t.lit : t.light}
                 </button>
               </div>
-            </div>
-            {localStories.length ? (
-              <article className="encounter-paper" key={selected.id}>
-                {PaperContent({})}
-                <button
-                  className="unfold-button"
-                  onClick={() => setDetail(true)}
-                >
-                  {t.read}
-                  <ArrowUpRight size={17} />
-                </button>
-              </article>
-            ) : (
-              <div className="planet-nearby-empty">
-                {en
-                  ? "No fictional papers near this timezone in today's selection. A new selection arrives tomorrow."
-                  : "今天的选集中，这个时区附近还没有虚构小报。明天会换一页新的相遇。"}
-              </div>
-            )}
-          </div>
-          <p className="planet-simulation">
-            <span>{t.demo}</span>
-            {t.demoNote}
-          </p>
-          <div className="planet-other">
-            <div className="planet-section-heading">
-              <h2>{t.readAll}</h2>
-              <span>{t.caption}</span>
-            </div>
-            <div className="story-strip">
-              {localStories.map((s, i) => (
-                <button
-                  className={`story-ticket ${selected.id === s.id ? "selected" : ""}`}
-                  key={s.id}
-                  onClick={() => {
-                    choose(s);
-                    if (matchMedia("(max-width: 760px)").matches) {
-                      setDetail(true);
-                      return;
-                    }
-                    document.querySelector(".planet-explorer")?.scrollIntoView({
-                      behavior: matchMedia("(prefers-reduced-motion: reduce)")
-                        .matches
-                        ? "instant"
-                        : "smooth",
-                      block: "start",
-                    });
-                  }}
-                >
-                  <span className="ticket-mark" style={{ "--light": s.color }}>
-                    <Sparkle size={23} weight="light" />
-                  </span>
-                  <small>{s.region[locale]}</small>
-                  <h3>{en ? s.english.title : s.text.title}</h3>
-                  <span>
-                    {s.name} · {s.age}
-                    {en ? " years" : " 岁"}
-                    <ArrowUpRight size={15} />
-                  </span>
-                </button>
-              ))}
             </div>
           </div>
         </div>
