@@ -1,3 +1,4 @@
+import { extraStories } from "./community-extra.mjs";
 // Entirely fictional, editorially authored community fixtures. Coordinates are
 // broad city anchors for the globe, never a child's location.
 export const languages = {
@@ -387,8 +388,28 @@ const timeZones = [
   "Pacific/Auckland",
   "Asia/Jerusalem",
 ];
-export const communityStories = raw.map((r, i) => ({
+// Broad editorial coverage buckets, not a taxonomy of peoples or personalities.
+const baseRegions = [
+  "east-asia",
+  "east-asia",
+  "western-europe",
+  "western-europe",
+  "andean-region",
+  "brazilian-region",
+  "north-africa",
+  "australia",
+  "north-america",
+  "north-america",
+  "east-asia",
+  "western-europe",
+  "east-asia",
+  "east-africa",
+  "pacific-islands",
+  "eastern-mediterranean",
+];
+const baseStories = raw.map((r, i) => ({
   id: r[0],
+  cultureRegion: baseRegions[i],
   name: r[1],
   region: { zh: r[2], en: r[3] },
   lon: r[4],
@@ -415,17 +436,38 @@ export const communityStories = raw.map((r, i) => ({
   },
   color: ["#ac764f", "#718b8c", "#9e807f", "#879575"][i % 4],
 }));
+export const communityStories = [...baseStories, ...extraStories];
+export const communityRegions = [
+  ...new Set(communityStories.map((s) => s.cultureRegion)),
+];
+export const DAILY_PAPER_COUNT = 26;
 export function editionKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 export function dailyStories(date = new Date()) {
   const key = editionKey(date);
   const dayNumber = Math.floor(Date.parse(key) / 86400000);
-  return Array.from(
-    { length: 12 },
-    (_, i) =>
-      communityStories[(dayNumber * 7 + i * 5) % communityStories.length],
-  );
+  // Reserve one paper per region before filling rotating slots. Iterating by one
+  // avoids duplicate selections when fixture counts share a factor with a stride.
+  const chosen = communityRegions.map((region) => {
+    const candidates = communityStories.filter(
+      (story) => story.cultureRegion === region,
+    );
+    return candidates[dayNumber % candidates.length];
+  });
+  const seen = new Set(chosen.map((story) => story.id));
+  for (
+    let i = 0;
+    i < communityStories.length && chosen.length < DAILY_PAPER_COUNT;
+    i++
+  ) {
+    const story = communityStories[(dayNumber + i) % communityStories.length];
+    if (!seen.has(story.id)) {
+      chosen.push(story);
+      seen.add(story.id);
+    }
+  }
+  return chosen;
 }
 export function translatedStory(story, language) {
   if (language === "zh") return story.text;

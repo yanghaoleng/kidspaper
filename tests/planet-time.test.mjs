@@ -61,7 +61,16 @@ test("nearby lights use IANA offsets including DST, fractional zones and the dat
   const ids = nearbyStories(communityStories, shanghai, october).map(
     (s) => s.id,
   );
-  assert.deepEqual(ids, ["garden", "moon", "bridge", "wind"]);
+  assert.deepEqual(ids, [
+    "garden",
+    "moon",
+    "bridge",
+    "wind",
+    "puddle",
+    "islands",
+    "shadow",
+    "window",
+  ]);
   assert.ok(
     nearbyStories(
       communityStories,
