@@ -10,6 +10,7 @@ import {
   workArchiveSchema,
   workContextSchema,
   checkWorkEvidence,
+  workPortraitPrompt,
 } from "../shared/workplace.mjs";
 
 const listen = (server) =>
@@ -38,16 +39,49 @@ test("adult archives preserve original answers and require evidence from this re
     workStories.length,
   );
 });
+test("portrait art direction uses the person's grounded work clues and keeps old archives readable", () => {
+  const input = structuredClone(workSample);
+  const prompt = workPortraitPrompt(input);
+  assert.match(prompt, /纸上水彩/);
+  assert.match(prompt, /产品设计师/);
+  assert.match(prompt, /把分歧变成共同看得见的问题/);
+  assert.doesNotMatch(prompt, /林溪/);
+  assert.match(prompt, /虚构成年主角/);
+  delete input.portrait;
+  assert.equal(workArchiveSchema.parse(input).portrait, null);
+  assert.equal(
+    workArchiveSchema.safeParse({
+      ...input,
+      portrait: {
+        image: "https://example.test/avatar.jpg",
+        description: "wrong image source",
+      },
+    }).success,
+    false,
+  );
+});
 
 test("separate workplace API: adult consent, isolated routes, minimum answers, evidence and model context", async (t) => {
   let calls = 0,
-    badEvidence = false;
+    badEvidence = false,
+    imageCalls = 0;
   const upstream = http.createServer(async (req, res) => {
     calls++;
     let raw = "";
     for await (const chunk of req) raw += chunk;
-    const body = JSON.parse(raw),
-      prompt = body.messages[0].content,
+    const body = JSON.parse(raw);
+    if (req.url === "/images/generations") {
+      imageCalls++;
+      assert.equal(body.model, "test-image-model");
+      assert.match(body.prompt, /人才画像里的工作世界/);
+      assert.match(body.prompt, /产品设计师/);
+      assert.match(body.prompt, /把分歧变成共同看得见的问题/);
+      assert.equal(body.watermark, true);
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ data: [{ b64_json: "aGVsbG8=" }] }));
+      return;
+    }
+    const prompt = body.messages[0].content,
       input = JSON.parse(body.messages[1].content);
     assert.match(prompt, /成年用户/);
     assert.doesNotMatch(prompt, /服务4至10岁|亲子共创/);
@@ -94,6 +128,7 @@ test("separate workplace API: adult consent, isolated routes, minimum answers, e
       ARK_API_KEY: "test-key",
       ARK_BASE_URL: `http://127.0.0.1:${upstreamPort}`,
       ARK_TEXT_MODEL: "test-work-model",
+      ARK_IMAGE_MODEL: "test-image-model",
       PORT: String(port),
       DATA_DIR: dir,
       SESSION_SECRET: "separate-test-session-secret-32-chars",
@@ -144,6 +179,34 @@ test("separate workplace API: adult consent, isolated routes, minimum answers, e
   const cookie = session.headers.get("set-cookie").split(";")[0];
   assert.match(cookie, /^partner_session=/);
   assert.match(session.headers.get("set-cookie"), /Path=\//);
+  assert.equal((await post("work/portrait", workSample)).status, 401);
+  assert.equal(
+    (
+      await post(
+        "work/portrait",
+        { ...workSample, answers: workSample.answers.slice(0, 3) },
+        cookie,
+      )
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await post(
+        "work/portrait",
+        { ...workSample, answers: workSample.answers.slice(0, 4) },
+        cookie,
+      )
+    ).status,
+    400,
+  );
+  assert.equal(imageCalls, 0);
+  const portraitResponse = await post("work/portrait", workSample, cookie);
+  assert.equal(portraitResponse.status, 200);
+  const portrait = (await portraitResponse.json()).portrait;
+  assert.match(portrait.image, /^data:image\/png;base64,/);
+  assert.match(portrait.description, /产品设计师/);
+  assert.equal(imageCalls, 1);
   assert.equal((await post("report", workSample, cookie)).status, 404);
   assert.equal(
     (
@@ -165,7 +228,7 @@ test("separate workplace API: adult consent, isolated routes, minimum answers, e
     ).status,
     400,
   );
-  assert.equal(calls, 0);
+  assert.equal(calls, imageCalls);
   const follow = await post(
     "work/followup",
     { profile: workSample.profile, answers: [workSample.answers[0]] },

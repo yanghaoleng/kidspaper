@@ -38,6 +38,10 @@ test("work archives use a separate store and encrypted format, including drafts 
     ...structuredClone(workSample),
     id: "work-encryption-test",
     images: { 0: "data:image/png;base64,aGVsbG8=" },
+    portrait: {
+      image: "data:image/png;base64,aGVsbG8=",
+      description: "产品设计师 · 整理工作线索的场景",
+    },
   };
   await exportIssue(issue, "partner-test-password");
   const text = await (await fetch(downloaded)).text();

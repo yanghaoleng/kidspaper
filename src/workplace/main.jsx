@@ -43,6 +43,8 @@ import { nearbyStories, viewerTimezone } from "../planet-time.mjs";
 import "../community.css";
 import "./style.css";
 
+const portraitArtwork =
+  import.meta.env.BASE_URL + "images/partner-work-world-v1.webp";
 const context = ({ profile, answers }) => ({ profile, answers });
 const dateLabel = (date) =>
   new Intl.DateTimeFormat("zh-CN", {
@@ -133,6 +135,7 @@ function App() {
       profile,
       answers: [],
       report: null,
+      portrait: null,
       images: {},
     };
     await saveIssue(next);
@@ -384,100 +387,74 @@ function App() {
 }
 
 function Home({ begin, showSample, planet }) {
+  const heroScroller = useRef(null);
+  useEffect(() => {
+    const element = heroScroller.current;
+    const position = () => {
+      element.scrollLeft = matchMedia("(max-width:760px)").matches
+        ? Math.max(0, (element.scrollWidth - element.clientWidth) * 0.54)
+        : 0;
+    };
+    const observer = new ResizeObserver(position);
+    observer.observe(element);
+    position();
+    return () => observer.disconnect();
+  }, []);
   return (
     <>
-      <section className="home-hero work-wrap">
-        <div className="hero-copy reveal">
+      <section className="work-landscape-hero">
+        <div
+          className="hero-scene"
+          ref={heroScroller}
+          aria-label="林溪的虚构工作世界"
+        >
+          <img
+            src={portraitArtwork}
+            alt="纸上水彩工作世界：成年设计师在花园工作室整理问题地图，远处同伴一起交流草图"
+            fetchPriority="high"
+            onLoad={(event) => {
+              const scroller = event.currentTarget.parentElement;
+              if (matchMedia("(max-width:760px)").matches)
+                scroller.scrollLeft = Math.max(
+                  0,
+                  (scroller.scrollWidth - scroller.clientWidth) * 0.54,
+                );
+            }}
+          />
+        </div>
+        <div className="work-wrap hero-copy reveal">
           <div className="section-kicker">
-            <span /> A little paper for your working life
+            <span /> A little world of your working life
           </div>
           <h1>
             认真工作的你，
             <br />
-            也值得被<span className="underlined">看见。</span>
+            也有自己的<span className="underlined">世界。</span>
           </h1>
           <p className="hero-intro">
-            从最近的成就、疲惫和一点点向往里，
-            <br className="desktop-break" />
-            重新认识工作中的自己。
-          </p>
-          <p className="hero-detail">
-            八个问题，一次安静的复盘。把零散的经历，
-            <br className="desktop-break" />
-            编成一份属于你的职场人物报。
+            从你的经历，看见工作的方式，
+            <br />
+            把此刻的人才画像，画成有你在的风景。
           </p>
           <div className="hero-actions">
             <button className="primary" onClick={begin}>
-              为自己做一份 <ArrowUpRight size={20} />
+              画出我的工作世界 <ArrowUpRight size={20} />
             </button>
             <button className="text-button" onClick={showSample}>
-              先翻翻样刊 <ArrowRight size={17} />
+              先走进一份样刊 <ArrowRight size={17} />
             </button>
           </div>
           <span className="hero-footnote">
-            <LockKey size={14} /> 约 15 分钟 · 可随时暂存 · 本机私藏
+            <LockKey size={14} />
+            八个问题 · 人物与场景主图 · 本机私藏
           </span>
         </div>
-        <div
-          className="hero-composition reveal"
-          aria-label="一份关于工作与自己的纸上手记预览"
-        >
-          <div className="composition-orbit" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="margin-note">
-            给这一程的自己
-            <br />
-            <span>A note to you.</span>
-          </div>
-          <div className="back-paper">
-            <span>慢一点，也在往前。</span>
-          </div>
-          <button
-            className="preview-paper"
-            onClick={showSample}
-            aria-label="翻开林溪的虚构职场样刊"
-          >
-            <div className="paper-masthead">
-              <span>同路人</span>
-              <span>人物特刊 / 001</span>
-            </div>
-            <div className="paper-hairline" />
-            <small className="paper-overline">林溪 · 产品设计师</small>
-            <h2>
-              在纷杂的声音里，
-              <br />
-              找到清楚的那条线。
-            </h2>
-            <div className="paper-diagram" aria-hidden="true">
-              <div className="diagram-ring ring-one" />
-              <div className="diagram-ring ring-two" />
-              <div className="diagram-line" />
-              <span className="diagram-node node-one" />
-              <span className="diagram-node node-two" />
-              <span className="diagram-node node-three" />
-              <span className="diagram-label label-one">经历</span>
-              <span className="diagram-label label-two">线索</span>
-              <span className="diagram-label label-three">下一步</span>
-              <Asterisk size={52} weight="thin" />
-            </div>
-            <blockquote>
-              “比起赶紧给出答案，
-              <br />
-              我更想先把问题看清楚。”
-            </blockquote>
-            <div className="paper-bottom">
-              <span>此刻的你，值得一页纸。</span>
-              <ArrowUpRight size={19} />
-            </div>
+        <div className="hero-scene-caption work-wrap">
+          <span>林溪的工作世界 · 依照虚构样刊画像绘制 · AI 生成</span>
+          <span className="scene-pan-hint">左右滑动，看看完整风景</span>
+          <button className="text-button" onClick={showSample}>
+            理清问题，让合作发生 <ArrowUpRight size={16} />
           </button>
-          <div className="paper-tag">
-            <span>不是履历上的你</span>
-            <strong>是正在经历的你。</strong>
-            <span className="tag-dot" />
-          </div>
         </div>
       </section>
       <section className="home-process work-wrap">
@@ -709,6 +686,7 @@ function Interview({
     setIssue((current) => ({
       ...current,
       report: null,
+      portrait: null,
       images: {},
       answers: workQuestions.flatMap((q) => {
         const value =
@@ -789,8 +767,22 @@ function Interview({
       if (!(await authorize())) return;
       await saveIssue(issue);
       const { report } = await api("work/report", context(issue));
-      const next = { ...issue, report };
+      let next = { ...issue, report, portrait: null };
       await saveIssue(next);
+      if (mounted.current) setBusy("portrait");
+      try {
+        const { portrait } = await api("work/portrait", {
+          ...context(next),
+          report,
+        });
+        next = { ...next, portrait };
+        await saveIssue(next);
+      } catch (error) {
+        notify(
+          "人物报已保存，场景主图暂未完成。进入小报后可以重新绘制。" +
+            error.message,
+        );
+      }
       if (!mounted.current) return;
       setIssue(next);
       onReport();
@@ -1001,8 +993,12 @@ function Interview({
           disabled={issue.answers.length < 4 || !!busy || recording}
           onClick={generate}
         >
-          {busy === "report" ? (
-            <Loading>编辑正在编排这一期…</Loading>
+          {busy === "report" || busy === "portrait" ? (
+            <Loading>
+              {busy === "portrait"
+                ? "正在把你的工作画像画成风景…"
+                : "编辑正在编排这一期…"}
+            </Loading>
           ) : (
             <>
               编排我的人物报 <ArrowUpRight size={19} />
@@ -1029,7 +1025,8 @@ function Report({
     [messages, setMessages] = useState([]),
     [message, setMessage] = useState(""),
     [chatBusy, setChatBusy] = useState(false);
-  const [checked, setChecked] = useState([]);
+  const [checked, setChecked] = useState([]),
+    [portraitBusy, setPortraitBusy] = useState(false);
   const mounted = useRef(true);
   useEffect(
     () => () => {
@@ -1037,6 +1034,23 @@ function Report({
     },
     [],
   );
+  async function drawPortrait() {
+    setPortraitBusy(true);
+    try {
+      if (!(await authorize())) return;
+      const { portrait } = await api("work/portrait", {
+        ...context(issue),
+        report,
+      });
+      const next = { ...issue, portrait };
+      if (!sample) await saveIssue(next);
+      if (mounted.current) setIssue(next);
+    } catch (error) {
+      notify(error.message);
+    } finally {
+      if (mounted.current) setPortraitBusy(false);
+    }
+  }
   async function illustrate(index) {
     setImageBusy(index);
     try {
@@ -1125,6 +1139,61 @@ function Report({
           <h1>{report.title}</h1>
           <p>{report.subtitle}</p>
         </div>
+        <figure
+          className={`portrait-cover ${portraitBusy ? "is-drawing" : ""}`}
+        >
+          <img
+            src={issue.portrait?.image || portraitArtwork}
+            alt={
+              issue.portrait
+                ? `${profile.nickname}依据本次工作画像生成的人物与场景概念主图`
+                : "根据虚构设计师林溪画像绘制的水彩工作世界样图"
+            }
+          />
+          {portraitBusy && (
+            <div className="portrait-progress">
+              <Loading>正在把你的工作画像画成风景…</Loading>
+              <span>人物报与回答已保存在本机。</span>
+            </div>
+          )}
+          <figcaption>
+            <div>
+              <span>
+                {issue.portrait
+                  ? "我的工作世界 · 根据本次人才画像生成"
+                  : sample
+                    ? "林溪的工作世界 · 根据这份虚构样刊画像绘制"
+                    : "当前为虚构样刊示意 · 你的个人主图尚未生成"}
+              </span>
+              <small>AI 概念插画 · 人物与场景为想象表达</small>
+            </div>
+            <button
+              className="text-button"
+              onClick={drawPortrait}
+              disabled={portraitBusy || imageBusy !== null}
+            >
+              {portraitBusy
+                ? "正在绘制…"
+                : issue.portrait
+                  ? "重新绘制主图"
+                  : sample
+                    ? "用 AI 再画一幅"
+                    : "绘制我的主图"}
+              <Sparkle size={16} />
+            </button>
+          </figcaption>
+          <details className="portrait-clues">
+            <summary>画面来自哪些画像线索？</summary>
+            <p>
+              {issue.portrait?.description ||
+                `${profile.role} · ${report.observations.map((item) => item.title).join(" · ")}`}
+            </p>
+            <small>
+              工作线索依据下面的回答引用；人物外貌和环境由 AI
+              虚构，不还原真实身份。
+            </small>
+          </details>
+        </figure>
         <p className="newspaper-intro">{report.introduction}</p>
         <div className="newspaper-section-heading">
           <span>01 / 从经历里，发现线索</span>
@@ -1203,7 +1272,7 @@ function Report({
                 ) : (
                   <button
                     className="text-button image-action"
-                    disabled={imageBusy !== null}
+                    disabled={imageBusy !== null || portraitBusy}
                     onClick={() => illustrate(i)}
                   >
                     {imageBusy === i ? (

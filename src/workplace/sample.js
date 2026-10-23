@@ -21,6 +21,7 @@ export const workSample = {
     text: texts[i],
   })),
   images: {},
+  portrait: null,
   report: {
     title: "在纷杂的声音里，找到清楚的那条线",
     subtitle: "林溪的工作手记 · 关于理清问题，也关于给自己留出空间",

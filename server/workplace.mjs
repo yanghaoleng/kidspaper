@@ -5,9 +5,32 @@ import {
   workFoundation,
   workReportPrompt,
   checkWorkEvidence,
+  workPortraitInputSchema,
+  workPortraitPrompt,
 } from "../shared/workplace.mjs";
 
-export function registerWorkplace(app, { prefix, session, route, chat }) {
+export function registerWorkplace(
+  app,
+  { prefix, session, route, chat, generateImage },
+) {
+  app.post(
+    prefix + "/api/work/portrait",
+    session,
+    route(async (req, res) => {
+      const input = workPortraitInputSchema.parse(req.body);
+      if (!checkWorkEvidence(input.report, input.answers))
+        return res
+          .status(400)
+          .json({ error: "请先核对人物报的原话引用，再绘制主图。" });
+      const image = await generateImage(workPortraitPrompt(input));
+      res.json({
+        portrait: {
+          image,
+          description: `${input.profile.role} · ${input.report.observations.map((item) => item.title).join(" · ")}`,
+        },
+      });
+    }, "image"),
+  );
   app.post(
     prefix + "/api/work/followup",
     session,
