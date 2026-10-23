@@ -1,0 +1,26 @@
+[Unit]
+Description=Partner private workplace reflection studio
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=partner
+Group=partner
+WorkingDirectory=/opt/partner/current
+Environment=NODE_ENV=production
+Environment=APP_EDITION=workplace
+EnvironmentFile=/etc/partner/partner.env
+ExecStart=/usr/bin/node dist-server/server.cjs
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/partner
+UMask=0077
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

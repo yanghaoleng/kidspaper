@@ -15,6 +15,7 @@ export default function PaperGlobe({
   english,
   viewer,
   now,
+  edition = "family",
 }) {
   const canvas = useRef(),
     container = useRef(),
@@ -326,8 +327,9 @@ export default function PaperGlobe({
               <strong>
                 {story.name}{" "}
                 <em>
-                  {story.age}
-                  {english ? " years" : " 岁"}
+                  {edition === "workplace"
+                    ? story.role
+                    : `${story.age}${english ? " years" : " 岁"}`}
                 </em>
               </strong>
               <span>{story.region[english ? "en" : "zh"]}</span>
@@ -337,7 +339,9 @@ export default function PaperGlobe({
               <span className="globe-tooltip-hint">
                 {english
                   ? "Fictional setting · Click to read"
-                  : "虚构故事地点 · 点击阅读小报"}
+                  : edition === "workplace"
+                    ? "虚构职场手记 · 点击阅读"
+                    : "虚构故事地点 · 点击阅读小报"}
               </span>
             </span>
           </button>

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-workplace/
+.data-workplace/
 .env
 .env.*
 !.env.example

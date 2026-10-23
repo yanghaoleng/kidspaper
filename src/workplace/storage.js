@@ -1,0 +1,124 @@
+import { workArchiveSchema as archiveSchema } from "../../shared/workplace.mjs";
+function db() {
+  return new Promise((resolve, reject) => {
+    const r = indexedDB.open("partner-private", 1);
+    r.onupgradeneeded = () =>
+      r.result.createObjectStore("issues", { keyPath: "id" });
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(new Error("本机存储暂不可用，请导出保存。"));
+  });
+}
+async function transact(mode, run) {
+  const d = await db();
+  return new Promise((resolve, reject) => {
+    const t = d.transaction("issues", mode);
+    let result;
+    const r = run(t.objectStore("issues"));
+    if (r)
+      r.onsuccess = () => {
+        result = r.result;
+      };
+    t.oncomplete = () => {
+      d.close();
+      resolve(result);
+    };
+    t.onerror = () => {
+      d.close();
+      reject(new Error("未能保存到本机，请及时导出备份。"));
+    };
+    t.onabort = () => {
+      d.close();
+      reject(new Error("本机存储已满或不可用，请导出备份。"));
+    };
+  });
+}
+export const saveIssue = (issue) =>
+  transact("readwrite", (s) => s.put(archiveSchema.parse(issue)));
+export const getIssues = async () =>
+  ((await transact("readonly", (s) => s.getAll())) || []).sort((a, b) =>
+    b.date.localeCompare(a.date),
+  );
+export const removeIssue = (id) => transact("readwrite", (s) => s.delete(id));
+const b64 = (a) => {
+  let binary = "";
+  for (let i = 0; i < a.length; i += 8192)
+    binary += String.fromCharCode(...a.subarray(i, i + 8192));
+  return btoa(binary);
+};
+const from64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+async function key(password, salt) {
+  const material = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: 250000, hash: "SHA-256" },
+    material,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+export async function exportIssue(issue, password) {
+  archiveSchema.parse(issue);
+  if (password.length < 8) throw new Error("请设置至少 8 位的保存密码。");
+  const salt = crypto.getRandomValues(new Uint8Array(16)),
+    iv = crypto.getRandomValues(new Uint8Array(12));
+  const k = await key(password, salt);
+  const encrypted = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    k,
+    new TextEncoder().encode(JSON.stringify(issue)),
+  );
+  const blob = new Blob(
+    [
+      JSON.stringify({
+        format: "partner-encrypted-v1",
+        salt: b64(salt),
+        iv: b64(iv),
+        data: b64(new Uint8Array(encrypted)),
+      }),
+    ],
+    { type: "application/json" },
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `partner-${issue.id.slice(0, 8)}.partner`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+export async function importIssue(file, password) {
+  if (file.size > 80000000)
+    throw new Error("文件太大，请选择小于 80 MB 的档案。");
+  const envelope = JSON.parse(await file.text());
+  if (envelope.format !== "partner-encrypted-v1")
+    throw new Error("请选择同路人导出的加密档案。");
+  try {
+    const salt = from64(envelope.salt),
+      iv = from64(envelope.iv);
+    if (salt.length !== 16 || iv.length !== 12) throw new Error();
+    const k = await key(password, salt);
+    const plain = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      k,
+      from64(envelope.data),
+    );
+    const issue = archiveSchema.parse(
+      JSON.parse(new TextDecoder().decode(plain)),
+    );
+    for (const image of Object.values(issue.images)) {
+      if (
+        !/^data:image\/(png|webp|jpeg);base64,[A-Za-z0-9+/=\r\n]+$/.test(image)
+      )
+        throw new Error();
+    }
+    await saveIssue(issue);
+    return issue;
+  } catch {
+    throw new Error("密码不对，或这份档案已损坏。请检查后重试。");
+  }
+}

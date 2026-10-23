@@ -8,6 +8,9 @@
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "dev:workplace": "vite --mode workplace --host 127.0.0.1",
+    "server:workplace": "APP_EDITION=workplace PORT=4318 node --env-file=.env server/index.mjs",
+    "build:workplace": "vite build --mode workplace && esbuild server/index.mjs --bundle --platform=node --target=node18 --format=cjs --outfile=dist-server/server.cjs",
     "server": "node --env-file=.env server/index.mjs",
     "build": "vite build && esbuild server/index.mjs --bundle --platform=node --target=node18 --format=cjs --outfile=dist-server/server.cjs",
     "start": "node server/index.mjs",

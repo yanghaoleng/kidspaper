@@ -6,6 +6,25 @@
 
 **体验：<https://mikeywa.site/kidspaper/>**
 
+## 同路人 · Partner（职场版）
+
+独立入口：<https://partner.mikeywa.site/>。八个成人工作复盘问题，生成带原话引用的职场人物报、三个可验证的小实验和一段可修改的沟通开场；支持录音转写、AI 追问、工作场景概念插画、本机手记、加密 `.partner` 导入导出、打印和档案对话。同路星球提供 13 篇明确虚构的职场手记，按附近时区展示，可在本机摘页收藏。
+
+职场版有独立的入口、题库、结构校验、AI 提示词、会话 cookie、本机数据库、档案格式、服务器服务和每日额度。它不读取或迁移亲子档案。所有工作观察仅依据本次记录，不作能力评分、招聘筛选或职业预测。详见 [职场版说明](docs/PARTNER.md)。
+
+```sh
+# 使用同一份服务端 .env 的方舟模型配置
+npm run server:workplace
+# 另开终端
+npm run dev:workplace
+# 打开终端给出的地址，默认为 http://127.0.0.1:5173/
+
+npm run build:workplace
+APP_EDITION=workplace PORT=4318 DATA_DIR=.data-workplace npm start
+```
+
+职场版构建写入 `dist-workplace/`，不覆盖亲子版 `dist/`。正式发布使用 [`deploy/release-partner.sh`](deploy/release-partner.sh)，独立监听 8817，通过新子域名根路径提供服务。
+
 ![小小世界](public/images/little-world.webp)
 
 ## 纸上星球
