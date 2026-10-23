@@ -96,7 +96,12 @@ for attempt in 1 2 3 4 5; do
 done
 curl -fsS http://127.0.0.1:8817/api/health
 sudo systemctl reload nginx
-curl -fsS https://partner.mikeywa.site/api/health
+https_ready=0
+for attempt in 1 2 3 4 5; do
+    if curl -fsS https://partner.mikeywa.site/api/health; then https_ready=1; break; fi
+    sleep 1
+done
+test "$https_ready" = 1
 curl -fsS https://partner.mikeywa.site/ | cmp - dist-workplace/index.html
 after=$(curl -fsS https://mikeywa.site/kidspaper/ | sha256sum | cut -d ' ' -f1)
 test "$before" = "$after"
