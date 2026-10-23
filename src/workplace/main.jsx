@@ -743,6 +743,10 @@ function Interview({
   }
   async function record() {
     if (recording) return finishRecording();
+    if (!navigator.mediaDevices?.getUserMedia) {
+      notify("当前浏览器暂不支持录音，可以继续打字记录。");
+      return;
+    }
     setBusy("mic");
     try {
       if (!(await authorize())) return;
@@ -787,6 +791,7 @@ function Interview({
       const { report } = await api("work/report", context(issue));
       const next = { ...issue, report };
       await saveIssue(next);
+      if (!mounted.current) return;
       setIssue(next);
       onReport();
     } catch (e) {
@@ -906,7 +911,14 @@ function Interview({
                 <button
                   className="outline"
                   onClick={() => {
-                    update((answer ? answer + "\n" : "") + transcript);
+                    const combined = (answer ? answer + "\n" : "") + transcript;
+                    if (combined.length > 2000) {
+                      notify(
+                        "合并后超过 2000 字，请先精简回答或转写内容。两段文字都已保留。",
+                      );
+                      return;
+                    }
+                    update(combined);
                     setTranscript("");
                   }}
                 >
@@ -1018,6 +1030,13 @@ function Report({
     [message, setMessage] = useState(""),
     [chatBusy, setChatBusy] = useState(false);
   const [checked, setChecked] = useState([]);
+  const mounted = useRef(true);
+  useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    [],
+  );
   async function illustrate(index) {
     setImageBusy(index);
     try {
@@ -1028,7 +1047,7 @@ function Report({
       });
       const next = { ...issue, images: { ...issue.images, [index]: image } };
       if (!sample) await saveIssue(next);
-      setIssue(next);
+      if (mounted.current) setIssue(next);
     } catch (e) {
       notify(e.message);
     } finally {
